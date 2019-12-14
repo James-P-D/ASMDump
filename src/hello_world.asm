@@ -15,7 +15,7 @@ includelib c:\\masm32\\m32lib\\masm32.lib
 .data
 STD_OUTPUT_HANDLE   equ -11                      ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
 hello_message       db "Hello world!",0          ; Our input/output byte
-hello_message_len   equ $ - offset hello_message ; Length of ioByte
+HELLO_MESSAGE_LEN   equ $ - offset hello_message ; Length of message
 
 .data?
 consoleOutHandle    dd ?                         ; Our ouput handle (currently undefined)
@@ -26,9 +26,9 @@ bytesRead           dd ?                         ; Number of bytes written to in
 .code
 start:              call getIOHandles            ; Get the input/output handles
 
-					push 0                       ; _Reserved_      LPVOID  lpReserved
+                    push 0                       ; _Reserved_      LPVOID  lpReserved
                     push offset bytesWritten     ; _Out_           LPDWORD lpNumberOfCharsWritten
-                    push hello_message_len       ; _In_            DWORD   nNumberOfCharsToWrite
+                    push HELLO_MESSAGE_LEN       ; _In_            DWORD   nNumberOfCharsToWrite
                     push offset hello_message    ; _In_      const VOID *  lpBuffer
                     push consoleOutHandle        ; _In_            HANDLE  hConsoleOutput
                     call WriteConsole            ; https://docs.microsoft.com/en-us/windows/console/writeconsole
