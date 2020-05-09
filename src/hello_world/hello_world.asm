@@ -14,17 +14,16 @@ includelib c:\\masm32\\m32lib\\masm32.lib
 
 .data
 STD_OUTPUT_HANDLE   equ -11                      ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
-hello_message       db "Hello world!",0          ; Our input/output byte
+hello_message       db "Hello world!", 13, 10    ; Our input/output byte
 HELLO_MESSAGE_LEN   equ $ - offset hello_message ; Length of message
 
 .data?
 consoleOutHandle    dd ?                         ; Our ouput handle (currently undefined)
 consoleInHandle     dd ?                         ; Our input handle (currently undefined)
 bytesWritten        dd ?                         ; Number of bytes written to output (currently undefined)
-bytesRead           dd ?                         ; Number of bytes written to input (currently undefined)
 
 .code
-start:              call getIOHandles            ; Get the input/output handles
+start:              call getOutputHandle         ; Get the input/output handles
 
                     push 0                       ; _Reserved_      LPVOID  lpReserved
                     push offset bytesWritten     ; _Out_           LPDWORD lpNumberOfCharsWritten
@@ -33,16 +32,12 @@ start:              call getIOHandles            ; Get the input/output handles
                     push consoleOutHandle        ; _In_            HANDLE  hConsoleOutput
                     call WriteConsole            ; https://docs.microsoft.com/en-us/windows/console/writeconsole
 
+                    push 0                       ; Exit code zero for success
+                    call ExitProcess             ; https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess
 
-                    push 0                        ; Exit code zero for success
-                    call ExitProcess              ; https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess
-
-getIOHandles:       push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
+getOutputHandle:    push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
                     call GetStdHandle            ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
                     mov [consoleOutHandle], eax  ; Save the output handle
-                    push STD_INPUT_HANDLE        ; _In_ DWORD nStdHandle
-                    call GetStdHandle            ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
-                    mov [consoleInHandle], eax   ; Save the input handle
                     ret
                     
 end start
