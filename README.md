@@ -8,4 +8,4 @@ Obligatory [Hello World](https://github.com/James-P-D/ASMDump/tree/master/src/he
 ## Compiler prep
 
 [Output of string literals](https://github.com/James-P-D/ASMDump/tree/master/src/string_output)  
-[Input and output of integers](https://github.com/James-P-D/ASMDump/tree/master/src/number_io)  
+[Input and output of integers](https://github.com/James-P-D/ASMDump/tree/master/src/integer_io)  
