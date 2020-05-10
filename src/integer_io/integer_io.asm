@@ -60,28 +60,37 @@ getIOHandles:       push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
 outputUnsignedByte:
                     pop ebp                      ; Pop the return address
                     
+
+                    mov ecx, 0                   ; Set digits counter to zero
+                    
+                    mov eax, 0
                     pop ax                       ; Pop integer to output into eax
-                    mov ah, 0                    ; Set most significant 8-bits to zero
-                    mov dx, 0
+                    and eax, 000000FFh           ; Set most significant 8-bits to zero
+                    mov edx, 0
                     mov bx, 10
-                    mov cx, 0                   ; Set digits counter to zero
                     div bx
                     
                     push ebp
                     
-                    ;mov al, 0
-                    and eax, 000000ffh
-                    ;shr eax, 8
-                    push eax
-                    push offset test_string
-                    call outputString
+                    ; Displays Quotient
+                    ;and eax, 000000FFh
+                    ;push eax                    
+                    ;push offset test_string
+                    ;call outputString                    
+                    ;push 2
+                    ;push offset cr_lf
+                    ;call outputString
                     
-                    push 2
-                    push offset cr_lf
-                    call outputString
+                    ; Displays Remainder
+                    ;and edx, 000000FFh                                        
+                    ;push edx
+                    ;push offset test_string
+                    ;call outputString                    
+                    ;push 2
+                    ;push offset cr_lf
+                    ;call outputString
                     
-                    pop ebp
-                    
+                    pop ebp                    
                     push ebp                     ; Restore return address
                     ret                          ; Return to caller
 
