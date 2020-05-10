@@ -16,8 +16,12 @@ includelib c:\\masm32\\m32lib\\masm32.lib
 
 .data
 STD_OUTPUT_HANDLE   equ -11                      ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
-hello_message       db "Hello world!",0          ; Our input/output byte
-HELLO_MESSAGE_LEN   equ $ - offset hello_message ; Length of message
+STD_INPUT_HANDLE    equ -10                      ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
+NUMBER_BUFFER_SIZE  equ 10                       ; TODO: How big? How many digits?
+number_buffer       db NUMBER_BUFFER_SIZE dup(0)
+
+test_string         db '1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890'
+cr_lf               db 13, 10
 
 .data?
 consoleOutHandle    dd ?                         ; Our ouput handle (currently undefined)
@@ -28,8 +32,17 @@ bytesRead           dd ?                         ; Number of bytes written to in
 .code
 start:              call getIOHandles            ; Get the input/output handles
 
+                    ;mov dh, 0
+                    mov dl, 123
+                    push dx
+                    call outputUnsignedByte
+
                     push 0                        ; Exit code zero for success
                     call ExitProcess              ; https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; getIOHandles()
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 getIOHandles:       push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
                     call GetStdHandle            ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
@@ -39,14 +52,68 @@ getIOHandles:       push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
                     mov [consoleInHandle], eax   ; Save the input handle
                     ret
 
-readCurrentByte:    push -1                    ; _In_opt_        LPVOID  pInputControl
-                    push offset bytesRead      ; _Out_           LPDWORD lpNumberOfCharsRead
-                    push 1                     ; _In_            DWORD   nNumberOfCharsToRead
-                    push offset ioByte         ; _Out_           LPVOID  lpBuffer
-                    push consoleInHandle       ; _In_            HANDLE  hConsoleInput
-                    call ReadConsole           ; https://docs.microsoft.com/en-us/windows/console/readconsole
-                    mov ah, ioByte             ; Move the byte read into AH register
-                    mov byte ptr [esi], ah     ; Move the AH register into our memory buffer
-                    ret
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; outputString(BYTE: number)
+; Destroys: EBP, 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+outputUnsignedByte:
+                    pop ebp                      ; Pop the return address
+                    
+                    pop ax                       ; Pop integer to output into eax
+                    mov ah, 0                    ; Set most significant 8-bits to zero
+                    mov dx, 0
+                    mov bx, 10
+                    mov cx, 0                   ; Set digits counter to zero
+                    div bx
+                    
+                    push ebp
+                    
+                    ;mov al, 0
+                    and eax, 000000ffh
+                    ;shr eax, 8
+                    push eax
+                    push offset test_string
+                    call outputString
+                    
+                    push 2
+                    push offset cr_lf
+                    call outputString
+                    
+                    pop ebp
+                    
+                    push ebp                     ; Restore return address
+                    ret                          ; Return to caller
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; outputString(DWORD: offset-of-string, DWORD: length-of-string)
+; Destroys EBP, ESI, EDI
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+outputString:
+                    pop ebp                      ; Pop the return address
+                    pop esi                      ; Pop length-of-string into edi
+                    pop edi                      ; Pop offset-of-string into esi
+                    
+                    push 0                       ; _Reserved_      LPVOID  lpReserved
+                    push offset bytesWritten     ; _Out_           LPDWORD lpNumberOfCharsWritten
+                    push edi                     ; _In_            DWORD   nNumberOfCharsToWrite
+                    push esi                     ; _In_      const VOID *  lpBuffer
+                    push consoleOutHandle        ; _In_            HANDLE  hConsoleOutput
+                    call WriteConsole            ; https://docs.microsoft.com/en-us/windows/console/writeconsole
+
+                    push ebp                     ; Restore return address
+                    ret                          ; Return to caller
+
+
+;readCurrentByte:    push -1                    ; _In_opt_        LPVOID  pInputControl
+;                    push offset bytesRead      ; _Out_           LPDWORD lpNumberOfCharsRead
+;                    push 1                     ; _In_            DWORD   nNumberOfCharsToRead
+;                    push offset ioByte         ; _Out_           LPVOID  lpBuffer
+;                    push consoleInHandle       ; _In_            HANDLE  hConsoleInput
+;                    call ReadConsole           ; https://docs.microsoft.com/en-us/windows/console/readconsole
+;                    mov ah, ioByte             ; Move the byte read into AH register
+;                    mov byte ptr [esi], ah     ; Move the AH register into our memory buffer
+;                    ret
                     
 end start
