@@ -18,9 +18,10 @@ includelib c:\\masm32\\m32lib\\masm32.lib
 STD_OUTPUT_HANDLE   equ -11                      ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
 STD_INPUT_HANDLE    equ -10                      ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
 NUMBER_BUFFER_SIZE  equ 10                       ; TODO: How big? How many digits?
-number_buffer       db NUMBER_BUFFER_SIZE dup(0)
+;number_buffer       db NUMBER_BUFFER_SIZE dup(0)
+number_buffer       db '_________________________'
 
-test_string         db '1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890'
+test_string         db '0123456789'
 cr_lf               db 13, 10
 
 .data?
@@ -37,8 +38,8 @@ start:              call getIOHandles            ; Get the input/output handles
                     push dx
                     call outputUnsignedByte
 
-                    push 0                        ; Exit code zero for success
-                    call ExitProcess              ; https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess
+                    push 0                       ; Exit code zero for success
+                    call ExitProcess             ; https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; getIOHandles()
@@ -58,20 +59,20 @@ getIOHandles:       push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 outputUnsignedByte:
-                    pop ebp                      ; Pop the return address
-                    
+                    pop ebp                      ; Pop the return address                    
 
-                    mov ecx, 0                   ; Set digits counter to zero
-                    
+                    mov ecx, 0                   ; Set digits counter to zero                    
                     mov eax, 0
-                    pop ax                       ; Pop integer to output into eax
-                    and eax, 000000FFh           ; Set most significant 8-bits to zero
+                    pop ax                       ; Pop integer to output into eax                    
+
+outputUnsignedByte_perform_calculation:                    
+                    ;
+                    mov ax, 123
+                    ;
                     mov edx, 0
                     mov bx, 10
                     div bx
-                    
-                    push ebp
-                    
+                                        
                     ; Displays Quotient
                     ;and eax, 000000FFh
                     ;push eax                    
@@ -90,6 +91,37 @@ outputUnsignedByte:
                     ;push offset cr_lf
                     ;call outputString
                     
+                    
+                    
+                    ; We need to check quotient is zero, but also that eax is also zero!
+                    ;cmp ah, 0
+                    ;jne outputUnsignedByte_prepare_next_loop
+                    ;cmp al, 0
+                    ;je outputUnsignedByte_finished_calculation
+                    
+                    push edx
+                    
+                    add dl, 030h
+                    mov byte ptr [number_buffer + ecx], dl
+                    
+                    pop eax
+                    shr eax, 8
+                    
+                    ;
+                    inc ecx
+                    ;
+                    jmp outputUnsignedByte_finished_calculation
+                    
+outputUnsignedByte_prepare_next_loop:                    
+                    inc ecx
+                    jmp outputUnsignedByte_perform_calculation
+
+outputUnsignedByte_finished_calculation:
+                    push ecx
+                    push offset number_buffer
+                    call outputString      
+
+  
                     pop ebp                    
                     push ebp                     ; Restore return address
                     ret                          ; Return to caller
