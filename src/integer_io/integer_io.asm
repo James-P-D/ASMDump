@@ -33,9 +33,9 @@ bytesRead           dd ?                         ; Number of bytes written to in
 .code
 start:              call getIOHandles            ; Get the input/output handles
 
-                    ;mov dh, 0
-                    mov dl, 123
-                    push dx
+                    mov ah, 0
+                    mov al, 123
+                    push ax
                     call outputUnsignedByte
 
                     push 0                       ; Exit code zero for success
@@ -62,14 +62,11 @@ outputUnsignedByte:
                     pop ebp                      ; Pop the return address                    
 
                     mov ecx, 0                   ; Set digits counter to zero                    
-                    mov eax, 0
                     pop ax                       ; Pop integer to output into eax                    
-
+                    ;mov eax, 123
+                    
 outputUnsignedByte_perform_calculation:                    
-                    ;
-                    mov ax, 123
-                    ;
-                    mov edx, 0
+                    mov dx, 0
                     mov bx, 10
                     div bx
                                         
@@ -94,26 +91,19 @@ outputUnsignedByte_perform_calculation:
                     
                     
                     ; We need to check quotient is zero, but also that eax is also zero!
-                    ;cmp ah, 0
+                    ;cmp dh, 0                                       ; Check the remainder
                     ;jne outputUnsignedByte_prepare_next_loop
-                    ;cmp al, 0
-                    ;je outputUnsignedByte_finished_calculation
                     
-                    push edx
+;                    push edx
                     
-                    add dl, 030h
+                    and edx, 000000FFh
+                    add dl, 030h                                    ; Check the remainder
                     mov byte ptr [number_buffer + ecx], dl
-                    
-                    pop eax
-                    shr eax, 8
-                    
-                    ;
                     inc ecx
-                    ;
-                    jmp outputUnsignedByte_finished_calculation
+
+                    cmp al, 0                                       ; Check the quotient
+                    je outputUnsignedByte_finished_calculation
                     
-outputUnsignedByte_prepare_next_loop:                    
-                    inc ecx
                     jmp outputUnsignedByte_perform_calculation
 
 outputUnsignedByte_finished_calculation:
