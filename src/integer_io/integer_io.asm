@@ -24,13 +24,13 @@ test_message        db "Enter a number", 13, 10   ; Example string
 TEST_MESSAGE_LEN    equ $ - offset test_message  ; Length of message
 
 .data?
-consoleOutHandle    dd ?                         ; Our ouput handle (currently undefined)
-consoleInHandle     dd ?                         ; Our input handle (currently undefined)
-bytesWritten        dd ?                         ; Number of bytes written to output (currently undefined)
-bytesRead           dd ?                         ; Number of bytes written to input (currently undefined)
+console_out_handle  dd ?                         ; Our ouput handle (currently undefined)
+console_in_handle   dd ?                         ; Our input handle (currently undefined)
+bytes_written       dd ?                         ; Number of bytes written to output (currently undefined)
+bytes_read          dd ?                         ; Number of bytes written to input (currently undefined)
 
 .code
-start:              call getIOHandles            ; Get the input/output handles
+start:              call get_io_handles            ; Get the input/output handles
 
                     call input_unsigned_byte
                     
@@ -44,17 +44,17 @@ start:              call getIOHandles            ; Get the input/output handles
 ; getIOHandles()
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-getIOHandles:       push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
+get_io_handles:     push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
                     call GetStdHandle            ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
-                    mov [consoleOutHandle], eax  ; Save the output handle
+                    mov [console_out_handle], eax; Save the output handle
                     push STD_INPUT_HANDLE        ; _In_ DWORD nStdHandle
                     call GetStdHandle            ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
-                    mov [consoleInHandle], eax   ; Save the input handle
+                    mov [console_in_handle], eax ; Save the input handle
                     ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; input_unsigned_byte()
-; Result in ax
+; Result byte read in AX
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 input_unsigned_byte:
@@ -63,13 +63,13 @@ input_unsigned_byte:
                     call output_string
 
                     push -1                     ; _In_opt_        LPVOID  pInputControl
-                    push offset bytesRead       ; _Out_           LPDWORD lpNumberOfCharsRead
+                    push offset bytes_read       ; _Out_           LPDWORD lpNumberOfCharsRead
                     push NUMBER_BUFFER_SIZE     ; _In_            DWORD   nNumberOfCharsToRead
                     push offset number_buffer   ; _Out_           LPVOID  lpBuffer
-                    push consoleInHandle        ; _In_            HANDLE  hConsoleInput
+                    push console_in_handle      ; _In_            HANDLE  hConsoleInput
                     call ReadConsole            ; https://docs.microsoft.com/en-us/windows/console/readconsole
                     
-                    mov ecx, [bytesRead]        ; Save number of characters read into ECX
+                    mov ecx, [bytes_read]       ; Save number of characters read into ECX
                     sub ecx, 2                  ; Remove CR/LF from character-read-count
                     cmp ecx, 0                  ; If two or less characters read..
                     jle input_unsigned_byte     ; ..read again
@@ -209,10 +209,10 @@ output_string:
                     push ebp                     ; Push EBP back to stack
                     
                     push 0                       ; _Reserved_      LPVOID  lpReserved
-                    push offset bytesWritten     ; _Out_           LPDWORD lpNumberOfCharsWritten
+                    push offset bytes_written    ; _Out_           LPDWORD lpNumberOfCharsWritten
                     push edi                     ; _In_            DWORD   nNumberOfCharsToWrite
                     push esi                     ; _In_      const VOID *  lpBuffer
-                    push consoleOutHandle        ; _In_            HANDLE  hConsoleOutput
+                    push console_out_handle      ; _In_            HANDLE  hConsoleOutput
                     call WriteConsole            ; https://docs.microsoft.com/en-us/windows/console/writeconsole
 
                     ret                          ; Return to caller
