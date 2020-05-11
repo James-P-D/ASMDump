@@ -18,10 +18,7 @@ includelib c:\\masm32\\m32lib\\masm32.lib
 STD_OUTPUT_HANDLE   equ -11                      ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
 STD_INPUT_HANDLE    equ -10                      ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
 NUMBER_BUFFER_SIZE  equ 10                       ; TODO: How big? How many digits?
-;number_buffer       db NUMBER_BUFFER_SIZE dup(0)
-number_buffer       db '_________________________'
-
-test_string         db '0123456789'
+number_buffer       db NUMBER_BUFFER_SIZE dup(0)
 cr_lf               db 13, 10
 
 .data?
@@ -33,9 +30,22 @@ bytesRead           dd ?                         ; Number of bytes written to in
 .code
 start:              call getIOHandles            ; Get the input/output handles
 
-                    mov al, 255
+                    mov al, -5
+                    push ax
+                    call output_signed_byte
+
+                    call output_new_line
+
+                    mov al, 55
+                    push ax
+                    call output_signed_byte
+
+                    call output_new_line
+
+                    mov al, 100
                     push ax
                     call output_unsigned_byte
+
 
                     push 0                       ; Exit code zero for success
                     call ExitProcess             ; https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess
@@ -53,16 +63,77 @@ getIOHandles:       push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
                     ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; output_signed_byte(BYTE: number)
+; If most significat bit set then negative.
+; otherwise, * Subtract 1
+;              negate
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+output_signed_byte:
+                    pop ebp                      ; Pop the return address
+                    pop ax                       ; Pop integer to output into AX
+                    push ebp                     ; Push EBP back onto stack
+                    and ax, 00FFh                ; Make sure AX is in range 0..255
+                    
+                    test al, al                  ; Check for most significant bit set (signifies negative number in two's-complement)
+                    js output_signed_byte_is_negative_number ; Jump if SF flag is set
+
+                    push ax                      ; Number is postive, so just push it to stack..
+                    call output_unsigned_byte    ; ..and call 'output_unsigned_byte'
+                    ret                          ; Return to caller
+                    
+output_signed_byte_is_negative_number:
+                    dec al                       ; Two's complement conversion, step 1 - Subtract 1 from number
+                    not al                       ; Two's complement conversion, step 2 - Negate number
+                    and eax, 000000FFh           ; Check still in byte range
+
+                    mov ecx, 0                   ; Set digits counter to zero     
+                    
+output_signed_byte_perform_calculation:                    
+                    mov dx, 0
+                    mov bx, 10                   ; Divide by 10
+                    div bx                       ; Divide AX by BX                    
+                                                 ; DL contains remainer, AL contains quotient
+                    and edx, 000000FFh           ; Make sure EDX (remainer) is in range 0..255
+                    add dl, 030h                 ; Add 30h (the letter '0' (zero)) so we map numbers to letters
+                    push dx                      ; Push our letter to the stack
+                    inc ecx                      ; Increment digit counter
+
+                    cmp al, 0                    ; Check if quotient is zero
+                    jne output_signed_byte_perform_calculation    ; If quotient is not zero, then we need to perform the operation again
+
+                    mov dx, '-'                  ; Set DX to character '-'
+                    push dx                      ; Push minus sign to top of stack so that it is first character displayed
+                    inc ecx                      ; Increment ECX since we now have another character to pop and display
+                    
+                    mov edi, 0                   ; Set EDI to zero. This will point to 'number_buffer' starting at index 0
+output_signed_byte_finished_calculation:
+                    pop dx                       ; Read the last remainder from the stack
+ 
+                    mov byte ptr [number_buffer + edi], dl ; Copy the letter to 'number_buffer'
+                    
+                    inc edi                      ; Incrememnt out pointer to 'number_buffer'
+                    loop output_signed_byte_finished_calculation  ; Continue looping until ECX is zero
+
+                    push edi                     ; At the end of the process, EDI will conveniently hold the number of characters written to 'number_buffer'. Pass it as a parameter to 'output_string'
+                    push offset number_buffer
+                    call output_string      
+  
+                    ret                          ; Return to caller
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; output_unsigned_byte(BYTE: number)
 ; Destroys: EBP, 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 output_unsigned_byte:
-                    pop ebp                      ; Pop the return address                    
-
-                    mov ecx, 0                   ; Set digits counter to zero                    
+                    pop ebp                      ; Pop the return address
                     pop ax                       ; Pop integer to output into AX
-                    and ax, 00FFh                ; Make sure AX is in range 0..255
+                    push ebp                     ; Push EBP back onto stack
+
+                    and ax, 00FFh                ; Make sure AX is in range 0..255                    
+                    mov ecx, 0                   ; Set digits counter to zero     
                     
 output_unsigned_byte_perform_calculation:                    
                     mov dx, 0
@@ -70,7 +141,8 @@ output_unsigned_byte_perform_calculation:
                     div bx                       ; Divide AX by BX                    
                                                  ; DL contains remainer, AL contains quotient
                     and edx, 000000FFh           ; Make sure EDX (remainer) is in range 0..255
-                    push dx                      ; Push our digit to the stack
+                    add dl, 030h                 ; Add 30h (the letter '0' (zero)) so we map numbers to letters
+                    push dx                      ; Push our letter to the stack
                     inc ecx                      ; Increment digit counter
 
                     cmp al, 0                    ; Check if quotient is zero
@@ -79,8 +151,7 @@ output_unsigned_byte_perform_calculation:
                     mov edi, 0                   ; Set EDI to zero. This will point to 'number_buffer' starting at index 0
 output_unsigned_byte_finished_calculation:
                     pop dx                       ; Read the last remainder from the stack
-                    add dl, 030h                 ; Add 30h (the letter '0' (zero)) so we map numbers to letters
-
+ 
                     mov byte ptr [number_buffer + edi], dl ; Copy the letter to 'number_buffer'
                     
                     inc edi                      ; Incrememnt out pointer to 'number_buffer'
@@ -90,8 +161,6 @@ output_unsigned_byte_finished_calculation:
                     push offset number_buffer
                     call output_string      
   
-                    pop ebp                    
-                    push ebp                     ; Restore return address
                     ret                          ; Return to caller
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -103,6 +172,7 @@ output_string:
                     pop ebp                      ; Pop the return address
                     pop esi                      ; Pop length-of-string into edi
                     pop edi                      ; Pop offset-of-string into esi
+                    push ebp                     ; Push EBP back to stack
                     
                     push 0                       ; _Reserved_      LPVOID  lpReserved
                     push offset bytesWritten     ; _Out_           LPDWORD lpNumberOfCharsWritten
@@ -111,9 +181,14 @@ output_string:
                     push consoleOutHandle        ; _In_            HANDLE  hConsoleOutput
                     call WriteConsole            ; https://docs.microsoft.com/en-us/windows/console/writeconsole
 
-                    push ebp                     ; Restore return address
                     ret                          ; Return to caller
 
+output_new_line:
+                    push 2
+                    push offset cr_lf
+                    call output_string
+                    
+                    ret
 
 ;readCurrentByte:    push -1                    ; _In_opt_        LPVOID  pInputControl
 ;                    push offset bytesRead      ; _Out_           LPDWORD lpNumberOfCharsRead
