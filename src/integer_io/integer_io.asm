@@ -20,7 +20,7 @@ STD_INPUT_HANDLE    equ -10                      ; https://docs.microsoft.com/en
 NUMBER_BUFFER_SIZE  equ 10                       ; TODO: How big? How many digits?
 number_buffer       db NUMBER_BUFFER_SIZE dup(0)
 cr_lf               db 13, 10
-test_message        db "Enter a number", 13, 10   ; Example string
+test_message        db "Enter a number", 13, 10  ; Example string
 TEST_MESSAGE_LEN    equ $ - offset test_message  ; Length of message
 
 .data?
@@ -30,27 +30,75 @@ bytes_written       dd ?                         ; Number of bytes written to ou
 bytes_read          dd ?                         ; Number of bytes written to input (currently undefined)
 
 .code
-start:              call get_io_handles            ; Get the input/output handles
+start:              call get_io_handles          ; Get the input/output handles
 
-                    call input_unsigned_byte
+                    push TEST_MESSAGE_LEN
+                    push offset test_message
+                    call output_string
+
+                    call input_signed_byte
                     
                     push ax
-                    call output_unsigned_byte
+                    call output_signed_byte
 
                     push 0                       ; Exit code zero for success
                     call ExitProcess             ; https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; getIOHandles()
+; input_signed_byte()
+; Result byte read in AX
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-get_io_handles:     push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
-                    call GetStdHandle            ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
-                    mov [console_out_handle], eax; Save the output handle
-                    push STD_INPUT_HANDLE        ; _In_ DWORD nStdHandle
-                    call GetStdHandle            ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
-                    mov [console_in_handle], eax ; Save the input handle
-                    ret
+input_signed_byte:
+                    push -1                     ; _In_opt_        LPVOID  pInputControl
+                    push offset bytes_read      ; _Out_           LPDWORD lpNumberOfCharsRead
+                    push NUMBER_BUFFER_SIZE     ; _In_            DWORD   nNumberOfCharsToRead
+                    push offset number_buffer   ; _Out_           LPVOID  lpBuffer
+                    push console_in_handle      ; _In_            HANDLE  hConsoleInput
+                    call ReadConsole            ; https://docs.microsoft.com/en-us/windows/console/readconsole
+
+                    mov ecx, [bytes_read]       ; Save number of characters read into ECX
+                    sub ecx, 2                  ; Remove CR/LF from character-read-count
+                    cmp ecx, 0                  ; If two or less characters read..
+                    jle input_signed_byte       ; ..read again
+                                        
+                    mov esi, offset number_buffer ; Set ESI to point to number_buffer for reading
+                    mov ebx, 0                  ; Set EBX to zero
+                    mov eax, 0                  ; Set EAX to zero
+
+                    cmp byte ptr [esi], '-'     ; Is first character read a minus sign?
+                    jne input_signed_byte_loop  ; If not, then just process as normal
+                    
+                    inc esi                     ; Incremement ESI so we are past the '-' character
+                    dec ecx                     ; Decremement ECX since we now have one fewer characters to process
+
+input_signed_byte_loop:
+                    mov bl, 10                  ; BL will be used to multiple AX by 10 for each digit read
+                    mul bx                      ; Multiply existing value in AX by BX (10) and put result in AX (This will be zero on first iteration)
+
+                    mov bl, byte ptr [esi]      ; Copy character from 'number_buffer' into BL
+                    cmp bl, '0'                 ; Compare character with '0'..
+                    jl input_signed_byte        ; ..and if it's less then that, then read again as it's not a number
+                    cmp bl, '9'                 ; Compare character with '9'..
+                    jg input_signed_byte        ; ..and if it's greater then that, then read again as it's not a number
+
+                    sub bl, 30h                 ; Convert from char to number ('3' to 3)
+                    
+                    add ax, bx                  ; Add the number to AX
+                                        
+                    inc esi                     ; Incremement out pointer to 'number_buffer'
+                    loop input_signed_byte_loop ; ...and do it again ECX times                                        
+
+                    mov esi, offset number_buffer ; Set ESI to point to number_buffer for reading
+                    cmp byte ptr [esi], '-'     ; Check if first character is '-'
+                    jne input_signed_byte_return; If no, then just return
+                    
+                    not al                       ; Two's complement conversion, step 1 - Negate number
+                    inc al                       ; Two's complement conversion, step 2 - Add 1 to number
+                    and eax, 000000FFh           ; Check still in byte range
+
+input_signed_byte_return:
+                    ret                         ; Return to caller
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; input_unsigned_byte()
@@ -58,12 +106,8 @@ get_io_handles:     push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 input_unsigned_byte:
-                    push TEST_MESSAGE_LEN
-                    push offset test_message
-                    call output_string
-
                     push -1                     ; _In_opt_        LPVOID  pInputControl
-                    push offset bytes_read       ; _Out_           LPDWORD lpNumberOfCharsRead
+                    push offset bytes_read      ; _Out_           LPDWORD lpNumberOfCharsRead
                     push NUMBER_BUFFER_SIZE     ; _In_            DWORD   nNumberOfCharsToRead
                     push offset number_buffer   ; _Out_           LPVOID  lpBuffer
                     push console_in_handle      ; _In_            HANDLE  hConsoleInput
@@ -78,7 +122,8 @@ input_unsigned_byte:
                     mov ebx, 0                  ; Set EBX to zero
                     mov eax, 0                  ; Set EAX to zero
                     
-looper:             mov bl, 10                  ; BL will be used to multiple AX by 10 for each digit read
+input_unsigned_byte_loop:
+                    mov bl, 10                  ; BL will be used to multiple AX by 10 for each digit read
                     mul bx                      ; Multiply existing value in AX by BX (10) and put result in AX (This will be zero on first iteration)
 
                     mov bl, byte ptr [esi]      ; Copy character from 'number_buffer' into BL
@@ -92,7 +137,7 @@ looper:             mov bl, 10                  ; BL will be used to multiple AX
                     add ax, bx                  ; Add the number to AX
                                         
                     inc esi                     ; Incremement out pointer to 'number_buffer'
-                    loop looper                 ; ...and do it again ECX times                                        
+                    loop input_unsigned_byte_loop ; ...and do it again ECX times                                        
 
                     ret                         ; Return to caller
                     
@@ -217,11 +262,28 @@ output_string:
 
                     ret                          ; Return to caller
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; output_new_line()
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 output_new_line:
                     push 2
                     push offset cr_lf
                     call output_string
                     
                     ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; get_io_handles()
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+get_io_handles:     push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
+                    call GetStdHandle            ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
+                    mov [console_out_handle], eax; Save the output handle
+                    push STD_INPUT_HANDLE        ; _In_ DWORD nStdHandle
+                    call GetStdHandle            ; https://docs.microsoft.com/en-us/windows/console/getstdhandle
+                    mov [console_in_handle], eax ; Save the input handle
+                    ret
+
 
 end start
