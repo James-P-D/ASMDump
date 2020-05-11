@@ -63,38 +63,11 @@ outputUnsignedByte:
 
                     mov ecx, 0                   ; Set digits counter to zero                    
                     pop ax                       ; Pop integer to output into eax                    
-                    ;mov eax, 123
                     
 outputUnsignedByte_perform_calculation:                    
                     mov dx, 0
                     mov bx, 10
                     div bx
-                                        
-                    ; Displays Quotient
-                    ;and eax, 000000FFh
-                    ;push eax                    
-                    ;push offset test_string
-                    ;call outputString                    
-                    ;push 2
-                    ;push offset cr_lf
-                    ;call outputString
-                    
-                    ; Displays Remainder
-                    ;and edx, 000000FFh                                        
-                    ;push edx
-                    ;push offset test_string
-                    ;call outputString                    
-                    ;push 2
-                    ;push offset cr_lf
-                    ;call outputString
-                    
-                    
-                    
-                    ; We need to check quotient is zero, but also that eax is also zero!
-                    ;cmp dh, 0                                       ; Check the remainder
-                    ;jne outputUnsignedByte_prepare_next_loop
-                    
-;                    push edx
                     
                     and edx, 000000FFh
                     add dl, 030h                                    ; Check the remainder
@@ -102,15 +75,12 @@ outputUnsignedByte_perform_calculation:
                     inc ecx
 
                     cmp al, 0                                       ; Check the quotient
-                    je outputUnsignedByte_finished_calculation
-                    
-                    jmp outputUnsignedByte_perform_calculation
+                    jne outputUnsignedByte_perform_calculation
 
 outputUnsignedByte_finished_calculation:
                     push ecx
                     push offset number_buffer
                     call outputString      
-
   
                     pop ebp                    
                     push ebp                     ; Restore return address
