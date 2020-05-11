@@ -20,6 +20,8 @@ STD_INPUT_HANDLE    equ -10                      ; https://docs.microsoft.com/en
 NUMBER_BUFFER_SIZE  equ 10                       ; TODO: How big? How many digits?
 number_buffer       db NUMBER_BUFFER_SIZE dup(0)
 cr_lf               db 13, 10
+test_message        db "Enter a number", 13, 10   ; Example string
+TEST_MESSAGE_LEN    equ $ - offset test_message  ; Length of message
 
 .data?
 consoleOutHandle    dd ?                         ; Our ouput handle (currently undefined)
@@ -30,22 +32,7 @@ bytesRead           dd ?                         ; Number of bytes written to in
 .code
 start:              call getIOHandles            ; Get the input/output handles
 
-                    mov al, -5
-                    push ax
-                    call output_signed_byte
-
-                    call output_new_line
-
-                    mov al, 55
-                    push ax
-                    call output_signed_byte
-
-                    call output_new_line
-
-                    mov al, 100
-                    push ax
-                    call output_unsigned_byte
-
+                    call input_unsigned_byte
 
                     push 0                       ; Exit code zero for success
                     call ExitProcess             ; https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess
@@ -62,6 +49,41 @@ getIOHandles:       push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
                     mov [consoleInHandle], eax   ; Save the input handle
                     ret
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; input_unsigned_byte()
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+input_unsigned_byte:
+                    push TEST_MESSAGE_LEN
+                    push offset test_message
+                    call output_string
+
+                    push -1                     ; _In_opt_        LPVOID  pInputControl
+                    push offset bytesRead       ; _Out_           LPDWORD lpNumberOfCharsRead
+                    push NUMBER_BUFFER_SIZE     ; _In_            DWORD   nNumberOfCharsToRead
+                    push offset number_buffer   ; _Out_           LPVOID  lpBuffer
+                    push consoleInHandle        ; _In_            HANDLE  hConsoleInput
+                    call ReadConsole            ; https://docs.microsoft.com/en-us/windows/console/readconsole
+                    
+                    mov ecx, [bytesRead]        ; Save number of characters read into ECX
+                    sub ecx, 2                  ; Remove CR/LF from character-read-count
+                    cmp ecx, 0                  ; If two or less characters read..
+                    jle input_unsigned_byte     ; ..read again
+                                        
+                    mov esi, offset number_buffer
+looper:             
+                    cmp byte ptr [esi], '0'
+                    jl input_unsigned_byte
+                    cmp byte ptr [esi], '9'
+                    jg input_unsigned_byte
+                    
+                    inc esi
+                    loop looper
+                    
+                    
+
+                    ret
+                    
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; output_signed_byte(BYTE: number)
 ; If most significat bit set then negative.
@@ -190,14 +212,4 @@ output_new_line:
                     
                     ret
 
-;readCurrentByte:    push -1                    ; _In_opt_        LPVOID  pInputControl
-;                    push offset bytesRead      ; _Out_           LPDWORD lpNumberOfCharsRead
-;                    push 1                     ; _In_            DWORD   nNumberOfCharsToRead
-;                    push offset ioByte         ; _Out_           LPVOID  lpBuffer
-;                    push consoleInHandle       ; _In_            HANDLE  hConsoleInput
-;                    call ReadConsole           ; https://docs.microsoft.com/en-us/windows/console/readconsole
-;                    mov ah, ioByte             ; Move the byte read into AH register
-;                    mov byte ptr [esi], ah     ; Move the AH register into our memory buffer
-;                    ret
-                    
 end start
