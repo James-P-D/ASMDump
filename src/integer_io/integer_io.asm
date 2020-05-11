@@ -33,6 +33,9 @@ bytesRead           dd ?                         ; Number of bytes written to in
 start:              call getIOHandles            ; Get the input/output handles
 
                     call input_unsigned_byte
+                    
+                    push ax
+                    call output_unsigned_byte
 
                     push 0                       ; Exit code zero for success
                     call ExitProcess             ; https://docs.microsoft.com/en-us/windows/desktop/api/processthreadsapi/nf-processthreadsapi-exitprocess
@@ -51,6 +54,7 @@ getIOHandles:       push STD_OUTPUT_HANDLE       ; _In_ DWORD nStdHandle
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; input_unsigned_byte()
+; Result in ax
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 input_unsigned_byte:
@@ -70,19 +74,27 @@ input_unsigned_byte:
                     cmp ecx, 0                  ; If two or less characters read..
                     jle input_unsigned_byte     ; ..read again
                                         
-                    mov esi, offset number_buffer
-looper:             
-                    cmp byte ptr [esi], '0'
-                    jl input_unsigned_byte
-                    cmp byte ptr [esi], '9'
-                    jg input_unsigned_byte
+                    mov esi, offset number_buffer ; Set ESI to point to number_buffer for reading
+                    mov ebx, 0                  ; Set EBX to zero
+                    mov eax, 0                  ; Set EAX to zero
                     
-                    inc esi
-                    loop looper
-                    
-                    
+looper:             mov bl, 10                  ; BL will be used to multiple AX by 10 for each digit read
+                    mul bx                      ; Multiply existing value in AX by BX (10) and put result in AX (This will be zero on first iteration)
 
-                    ret
+                    mov bl, byte ptr [esi]      ; Copy character from 'number_buffer' into BL
+                    cmp bl, '0'                 ; Compare character with '0'..
+                    jl input_unsigned_byte      ; ..and if it's less then that, then read again as it's not a number
+                    cmp bl, '9'                 ; Compare character with '9'..
+                    jg input_unsigned_byte      ; ..and if it's greater then that, then read again as it's not a number
+                    
+                    sub bl, 30h                 ; Convert from char to number ('3' to 3)
+                    
+                    add ax, bx                  ; Add the number to AX
+                                        
+                    inc esi                     ; Incremement out pointer to 'number_buffer'
+                    loop looper                 ; ...and do it again ECX times                                        
+
+                    ret                         ; Return to caller
                     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; output_signed_byte(BYTE: number)
