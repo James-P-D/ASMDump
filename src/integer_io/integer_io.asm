@@ -69,16 +69,28 @@ outputUnsignedByte_perform_calculation:
                     mov bx, 10
                     div bx
                     
-                    and edx, 000000FFh
-                    add dl, 030h                                    ; Check the remainder
-                    mov byte ptr [number_buffer + ecx], dl
+                    push dx
                     inc ecx
 
                     cmp al, 0                                       ; Check the quotient
                     jne outputUnsignedByte_perform_calculation
 
+                    mov edi, 0
 outputUnsignedByte_finished_calculation:
-                    push ecx
+                    pop dx
+                    and edx, 000000FFh
+                    add dl, 030h                                    ; Check the remainder
+                    ;mov byte ptr [number_buffer + ecx], dl
+
+                    mov byte ptr [number_buffer + edi], dl
+                    
+                    inc edi
+                    ;dec ecx
+                    ;cmp ecx, 0
+                    ;je outputUnsignedByte_finished_calculation
+                    loop outputUnsignedByte_finished_calculation
+
+                    push edi
                     push offset number_buffer
                     call outputString      
   
